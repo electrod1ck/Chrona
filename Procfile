@@ -1,0 +1,1 @@
+web: gunicorn chrona1.wsgi --log-file -
