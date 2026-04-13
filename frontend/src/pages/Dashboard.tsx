@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { apiFetch } from '../api';
 import { DayStrip, type DayBar } from '../components/DayStrip';
@@ -125,9 +126,9 @@ export function Dashboard() {
             {dash.invitations.map((inv) => (
               <div key={inv.id} className="card hover-lift">
                 <p style={{ margin: 0, fontSize: 15 }}>{inv.text}</p>
-                <button type="button" className="linkish" style={{ marginTop: 14 }}>
+                <Link to="/app/moments" className="linkish" style={{ marginTop: 14, display: 'inline-block' }}>
                   Заметить это
-                </button>
+                </Link>
               </div>
             ))}
           </div>

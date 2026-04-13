@@ -598,6 +598,30 @@ details.explainer .explainer__body p:last-child {
 .emotion-deep {
   background: var(--primary);
 }
+.emotion-joy {
+  background: #c9a227;
+}
+.emotion-gratitude {
+  background: #7d9a6e;
+}
+.emotion-tired {
+  background: #8a7d8c;
+}
+.emotion-anxious {
+  background: #b87a6a;
+}
+.emotion-hope {
+  background: #6b9bd1;
+}
+.emotion-tender {
+  background: #c49bb5;
+}
+.emotion-focus {
+  background: #5c7d8c;
+}
+.emotion-light {
+  background: #a8b8c9;
+}
 
 .overlay-backdrop {
   position: fixed;

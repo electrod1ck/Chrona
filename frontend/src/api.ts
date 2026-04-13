@@ -42,13 +42,17 @@ export async function apiFetch<T = unknown>(
 }
 
 /** multipart/form-data (без ручного Content-Type — браузер выставит boundary) */
-export async function apiUpload<T = unknown>(path: string, form: FormData): Promise<T> {
+export async function apiUpload<T = unknown>(
+  path: string,
+  form: FormData,
+  method: 'POST' | 'PATCH' = 'POST'
+): Promise<T> {
   const headers = new Headers();
   const token = getCookie('csrftoken');
   if (token) headers.set('X-CSRFToken', token);
   headers.set('Accept', 'application/json');
   const res = await fetch(`${API_PREFIX}${path}`, {
-    method: 'POST',
+    method,
     body: form,
     headers,
     credentials: 'include',

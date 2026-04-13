@@ -8,7 +8,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Увеличьте после `npm run build`, чтобы браузер подтянул новый main.js/chrona.css
-CHRONA_ASSET_VERSION = os.environ.get('CHRONA_ASSET_VERSION', '5')
+CHRONA_ASSET_VERSION = os.environ.get('CHRONA_ASSET_VERSION', '8')
 
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
@@ -32,7 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
-    'chrona',
+    'chrona.apps.ChronaConfig',
 ]
 
 MIDDLEWARE = [
@@ -76,6 +76,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # Параллельные запросы (несколько вкладок / быстрые опросы API) иначе дают «database is locked»
+        'OPTIONS': {
+            'timeout': 30,
+        },
     }
 }
 

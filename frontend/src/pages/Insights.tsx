@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { PageHeader } from '../components/PageHeader';
 
@@ -52,12 +53,37 @@ export function Insights() {
     return { d: path };
   }, [series]);
 
+  const weekForecast = useMemo(() => {
+    if (series.length < 4) return null;
+    const vals = series.map((p) => p.value);
+    const half = Math.floor(vals.length / 2);
+    const a = vals.slice(0, half).reduce((x, y) => x + y, 0) / half;
+    const b = vals.slice(half).reduce((x, y) => x + y, 0) / (vals.length - half);
+    const diff = b - a;
+    if (diff > 3) {
+      return {
+        line: 'По последним дням ритм чуть плотнее, чем в начале окна — хорошее время закрепить привычки.',
+        risk: 'низкий',
+      };
+    }
+    if (diff < -3) {
+      return {
+        line: 'Наблюдается мягкое снижение «плотности» дней — хороший момент заранее внести маленькое разнообразие.',
+        risk: 'повышенный',
+      };
+    }
+    return {
+      line: 'Динамика ровная: монотонность не нарастает круто — можно спокойно планировать ритуалы.',
+      risk: 'умеренный',
+    };
+  }, [series]);
+
   return (
     <div>
       <PageHeader
         eyebrow="Наблюдение"
         title="Инсайты"
-        lead="Линия — дыхание глубины. Карточки — как цитаты о тебе."
+        lead="Долгая динамика индекса, текстовые инсайты и простой прогноз на ближайшие дни по вашему ряду."
       />
       <details className="explainer">
         <summary>Как построен график и что означают карточки</summary>
@@ -76,6 +102,21 @@ export function Insights() {
           </p>
         </div>
       </details>
+      {weekForecast ? (
+        <div className="card" style={{ marginBottom: 24, padding: 22 }}>
+          <h3 className="card-title" style={{ marginTop: 0 }}>
+            Прогноз на ближайшую неделю
+          </h3>
+          <p style={{ margin: '0 0 12px', color: 'var(--text)', lineHeight: 1.65 }}>{weekForecast.line}</p>
+          <p className="text-quiet" style={{ margin: '0 0 12px', fontSize: 14 }}>
+            Условный риск «сглаживания» недели: <strong style={{ color: 'var(--text)' }}>{weekForecast.risk}</strong>.
+            Не медицинский прогноз, а ориентир по вашему ряду DailyIndex в приложении.
+          </p>
+          <Link to="/app/rituals" className="linkish">
+            Перейти к планированию ритуалов →
+          </Link>
+        </div>
+      ) : null}
       <div className="card" style={{ marginBottom: 40, padding: 24 }}>
         <svg width="100%" viewBox="0 0 720 200" aria-hidden>
           <path

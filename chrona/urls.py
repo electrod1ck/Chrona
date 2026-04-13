@@ -5,6 +5,7 @@ from . import public_views, views
 
 router = DefaultRouter()
 router.register(r'tags', views.TagViewSet, basename='tag')
+router.register(r'places', views.PlaceViewSet, basename='place')
 router.register(r'moments', views.MomentViewSet, basename='moment')
 router.register(r'rituals', views.RitualViewSet, basename='ritual')
 router.register(r'notes', views.UserNoteViewSet, basename='note')
@@ -27,6 +28,8 @@ urlpatterns = [
     path('profile/avatar/', views.profile_avatar_upload),
     path('profile/stats/', views.profile_stats),
     path('inspiration/', views.inspiration_feed),
+    path('adapted-actions/', views.adapted_actions),
+    path('adapted-actions/<int:pk>/', views.adapted_action_update),
     path('export/', views.export_life),
     path('interventions/', views.interventions_list),
     path('insights/', views.insights_list),

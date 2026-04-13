@@ -8,14 +8,26 @@ type Ritual = {
   id: number;
   title: string;
   frequency_label: string;
+  days_of_week: string;
   last_completed_at: string | null;
 };
+
+const WEEK_OPTS = [
+  { id: 'mon', label: 'Пн' },
+  { id: 'tue', label: 'Вт' },
+  { id: 'wed', label: 'Ср' },
+  { id: 'thu', label: 'Чт' },
+  { id: 'fri', label: 'Пт' },
+  { id: 'sat', label: 'Сб' },
+  { id: 'sun', label: 'Вс' },
+] as const;
 
 export function Rituals() {
   const { me, loading: authLoading } = useAuth();
   const [rows, setRows] = useState<Ritual[]>([]);
   const [newTitle, setNewTitle] = useState('');
   const [newFreq, setNewFreq] = useState('каждый день');
+  const [pickedDays, setPickedDays] = useState<string[]>([]);
 
   const load = useCallback(() => {
     void apiFetch<Ritual[]>('/rituals/').then(setRows);
@@ -39,10 +51,12 @@ export function Rituals() {
       body: JSON.stringify({
         title: newTitle.trim(),
         frequency_label: newFreq.trim() || 'по настроению',
+        days_of_week: pickedDays.length ? pickedDays.join(',') : '',
       }),
     });
     setNewTitle('');
     setNewFreq('каждый день');
+    setPickedDays([]);
     load();
   }
 
@@ -75,7 +89,7 @@ export function Rituals() {
       <PageHeader
         eyebrow="Ритм"
         title="Ритуалы"
-        lead="Привычки, но мягче. Отметка без оценки. Ниже — добавление в БД."
+        lead="Назовите ритуал, выберите частоту и дни недели — спокойное планирование без давления."
       />
 
       <form onSubmit={addRitual} className="card" style={{ marginBottom: 28, padding: 22 }}>
@@ -89,6 +103,36 @@ export function Rituals() {
         <div className="field">
           <label>Как часто</label>
           <input value={newFreq} onChange={(e) => setNewFreq(e.target.value)} maxLength={64} />
+        </div>
+        <div className="field">
+          <span className="label-caps" style={{ display: 'block', marginBottom: 10 }}>
+            Дни недели
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {WEEK_OPTS.map((d) => (
+              <label
+                key={d.id}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={pickedDays.includes(d.id)}
+                  onChange={() => {
+                    setPickedDays((prev) =>
+                      prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
+                    );
+                  }}
+                />
+                {d.label}
+              </label>
+            ))}
+          </div>
         </div>
         <button type="submit" className="primary-btn">
           Сохранить в БД
@@ -112,7 +156,12 @@ export function Rituals() {
               <h2 className="card-title" style={{ marginBottom: 6 }}>
                 {r.title}
               </h2>
-              <div className="label-caps">{r.frequency_label}</div>
+              <div className="label-caps">
+                {r.frequency_label}
+                {r.days_of_week
+                  ? ` · ${r.days_of_week.split(',').map((x) => WEEK_OPTS.find((w) => w.id === x)?.label || x).join(', ')}`
+                  : ''}
+              </div>
               <div className="text-quiet" style={{ marginTop: 8, fontSize: 14 }}>
                 Последний раз:{' '}
                 {r.last_completed_at

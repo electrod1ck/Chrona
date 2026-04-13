@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    AdaptedAction,
     DailySnapshot,
     GuestBookEntry,
     InsightCard,
@@ -9,6 +10,7 @@ from .models import (
     MicroInvitation,
     Moment,
     MoodPulse,
+    Place,
     Profile,
     Ritual,
     Tag,
@@ -23,6 +25,11 @@ class ProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user']
+
+
+@admin.register(Place)
+class PlaceAdmin(admin.ModelAdmin):
     list_display = ['name', 'user']
 
 
@@ -75,5 +82,11 @@ class UserNoteAdmin(admin.ModelAdmin):
 
 @admin.register(InspirationPost)
 class InspirationPostAdmin(admin.ModelAdmin):
-    list_display = ['author', 'body', 'created_at']
-    search_fields = ['body', 'author_display_override']
+    list_display = ['author', 'title', 'body', 'created_at']
+    search_fields = ['body', 'title', 'author_display_override']
+
+
+@admin.register(AdaptedAction)
+class AdaptedActionAdmin(admin.ModelAdmin):
+    list_display = ['user', 'status', 'created_at']
+    list_filter = ['status']

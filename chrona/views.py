@@ -4,33 +4,39 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Q
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .models import (
+    AdaptedAction,
     DailySnapshot,
     InsightCard,
     InspirationPost,
     MicroIntervention,
     MicroInvitation,
     Moment,
+    Place,
     Profile,
     Ritual,
     Tag,
     UserNote,
 )
 from .serializers import (
+    AdaptedActionSerializer,
     DailySnapshotSerializer,
     DashboardSerializer,
     InsightCardSerializer,
     InspirationPostSerializer,
     MicroInterventionSerializer,
     MomentSerializer,
+    PlaceSerializer,
     ProfileSerializer,
     RitualSerializer,
     TagSerializer,
@@ -82,7 +88,16 @@ def auth_register(request):
     if User.objects.filter(username__iexact=username).exists():
         return Response({'detail': 'Такое имя уже занято'}, status=400)
     user = User.objects.create_user(username=username, password=password, email=email)
-    Profile.objects.create(user=user, display_name=display_name or username)
+    prof_kw: dict = {'display_name': display_name or username}
+    try:
+        raw_age = request.data.get('age')
+        if raw_age is not None and str(raw_age).strip() != '':
+            a = int(raw_age)
+            if 0 < a < 130:
+                prof_kw['age'] = a
+    except (TypeError, ValueError):
+        pass
+    Profile.objects.create(user=user, **prof_kw)
     login(request, user)
     ensure_snapshots(user)
     return Response(
@@ -289,7 +304,12 @@ def export_life(request):
     """Minimal JSON export for “Экспорт жизни”."""
     user = request.user
     moments = Moment.objects.filter(user=user).values(
-        'text', 'emotion', 'created_at', 'image_url'
+        'text',
+        'emotion',
+        'created_at',
+        'image_url',
+        'location',
+        'integration_ref',
     )
     snaps = DailySnapshot.objects.filter(user=user).values(
         'date', 'depth_index', 'summary_line', 'influences'
@@ -315,19 +335,39 @@ class TagViewSet(ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-class MomentViewSet(ModelViewSet):
-    serializer_class = MomentSerializer
+class PlaceViewSet(ModelViewSet):
+    serializer_class = PlaceSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Moment.objects.filter(user=self.request.user).prefetch_related('tags')
+        return Place.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class MomentViewSet(ModelViewSet):
+    serializer_class = MomentSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        return Moment.objects.filter(user=self.request.user).prefetch_related('tags', 'places')
+
+    def perform_create(self, serializer):
+        img = self.request.FILES.get('image')
         m = serializer.save(user=self.request.user)
+        if img:
+            m.image = img
+            m.save(update_fields=['image'])
         recompute_snapshot_for_day(self.request.user, m.created_at.date())
 
     def perform_update(self, serializer):
+        img = self.request.FILES.get('image')
         inst = serializer.save()
+        if img:
+            inst.image = img
+            inst.save(update_fields=['image'])
         recompute_snapshot_for_day(self.request.user, inst.created_at.date())
 
     def perform_destroy(self, instance):
@@ -391,6 +431,9 @@ def inspiration_feed(request):
     if len(body) < 3:
         return Response({'detail': 'Добавьте хотя бы пару слов'}, status=400)
     post = InspirationPost(author=request.user, body=body[:2000])
+    title = (request.data.get('title') or '').strip()[:200]
+    if title:
+        post.title = title
     if request.FILES.get('image'):
         post.image = request.FILES['image']
     else:
@@ -426,6 +469,52 @@ def insights_series(request):
         d = start + timedelta(days=i)
         values.append({'date': d.isoformat(), 'value': by_d.get(d, 0.0)})
     return Response(values)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def adapted_actions(request):
+    if request.method == 'GET':
+        qs = AdaptedAction.objects.filter(user=request.user).order_by('-created_at')[:80]
+        return Response(AdaptedActionSerializer(qs, many=True).data)
+    post_id = request.data.get('inspiration_post_id')
+    mi_id = request.data.get('micro_intervention_id')
+    if post_id is not None:
+        ip = get_object_or_404(InspirationPost, pk=post_id)
+        text = ((ip.title + ': ') if ip.title else '') + ip.body
+        aa = AdaptedAction.objects.create(
+            user=request.user,
+            inspiration_post=ip,
+            generated_action=text[:2000],
+            status=AdaptedAction.STATUS_PENDING,
+        )
+    elif mi_id is not None:
+        mi = get_object_or_404(MicroIntervention, pk=mi_id)
+        aa = AdaptedAction.objects.create(
+            user=request.user,
+            micro_intervention=mi,
+            generated_action=f'{mi.title}\n\n{mi.description}',
+            status=AdaptedAction.STATUS_PENDING,
+        )
+    else:
+        return Response(
+            {'detail': 'Укажите inspiration_post_id или micro_intervention_id'},
+            status=400,
+        )
+    return Response(AdaptedActionSerializer(aa).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def adapted_action_update(request, pk):
+    aa = get_object_or_404(AdaptedAction, pk=pk, user=request.user)
+    st = (request.data.get('status') or '').strip()
+    valid = {c[0] for c in AdaptedAction.STATUS_CHOICES}
+    if st not in valid:
+        return Response({'detail': 'Некорректный status'}, status=400)
+    aa.status = st
+    aa.save(update_fields=['status'])
+    return Response(AdaptedActionSerializer(aa).data)
 
 
 class UserNoteViewSet(ModelViewSet):

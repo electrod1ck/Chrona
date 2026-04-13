@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import (
+    AdaptedAction,
     DailySnapshot,
     GuestBookEntry,
     InsightCard,
@@ -10,6 +11,7 @@ from .models import (
     MicroInvitation,
     Moment,
     MoodPulse,
+    Place,
     Profile,
     Ritual,
     Tag,
@@ -25,8 +27,15 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
+class PlaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Place
+        fields = ['id', 'name']
+
+
 class MomentSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
+    places = PlaceSerializer(many=True, read_only=True)
     tag_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Tag.objects.none(),
@@ -34,43 +43,70 @@ class MomentSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
     )
+    place_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Place.objects.none(),
+        source='places',
+        write_only=True,
+        required=False,
+    )
+    note = serializers.CharField(source='text', read_only=True)
 
     class Meta:
         model = Moment
         fields = [
             'id',
             'text',
+            'note',
             'emotion',
             'image_url',
             'tags',
             'tag_ids',
+            'places',
+            'place_ids',
+            'location',
+            'integration_ref',
             'created_at',
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'note']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            self.fields['tag_ids'].child_relation.queryset = Tag.objects.filter(
-                user=request.user
-            )
+            uid = request.user.id
+            self.fields['tag_ids'].child_relation.queryset = Tag.objects.filter(user_id=uid)
+            self.fields['place_ids'].child_relation.queryset = Place.objects.filter(user_id=uid)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if instance.image:
+            url = instance.image.url
+            ret['image_url'] = request.build_absolute_uri(url) if request else url
+        return ret
 
     def create(self, validated_data):
         tags = validated_data.pop('tags', [])
+        places = validated_data.pop('places', [])
         user = validated_data.pop('user', None) or self.context['request'].user
         moment = Moment.objects.create(user=user, **validated_data)
         if tags:
             moment.tags.set(tags)
+        if places:
+            moment.places.set(places)
         return moment
 
     def update(self, instance, validated_data):
         tags = validated_data.pop('tags', None)
+        places = validated_data.pop('places', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         if tags is not None:
             instance.tags.set(tags)
+        if places is not None:
+            instance.places.set(places)
         return instance
 
 
@@ -89,7 +125,7 @@ class DailySnapshotSerializer(serializers.ModelSerializer):
 class RitualSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ritual
-        fields = ['id', 'title', 'frequency_label', 'last_completed_at']
+        fields = ['id', 'title', 'frequency_label', 'days_of_week', 'last_completed_at']
 
 
 class MicroInterventionSerializer(serializers.ModelSerializer):
@@ -116,7 +152,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['display_name', 'avatar_url', 'username', 'email', 'bio']
+        fields = ['display_name', 'avatar_url', 'username', 'email', 'bio', 'age']
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -133,7 +169,7 @@ class InspirationPostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = InspirationPost
-        fields = ['id', 'body', 'image_url', 'author_name', 'created_at']
+        fields = ['id', 'title', 'body', 'image_url', 'author_name', 'created_at']
 
     def get_author_name(self, obj):
         if obj.author_display_override:
@@ -163,6 +199,20 @@ class MoodPulseSerializer(serializers.ModelSerializer):
         model = MoodPulse
         fields = ['id', 'mood', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class AdaptedActionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdaptedAction
+        fields = [
+            'id',
+            'inspiration_post',
+            'micro_intervention',
+            'generated_action',
+            'status',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'generated_action', 'created_at']
 
 
 class UserNoteSerializer(serializers.ModelSerializer):

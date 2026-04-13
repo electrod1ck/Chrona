@@ -23,6 +23,7 @@ export function Register() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [age, setAge] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -38,6 +39,7 @@ export function Register() {
         password,
         email: email.trim() || undefined,
         display_name: displayName.trim() || undefined,
+        age: age.trim() ? age.trim() : undefined,
       });
     } catch {
       setErr('Не удалось создать аккаунт. Проверьте имя (уникальное) и пароль (от 8 символов).');
@@ -93,6 +95,17 @@ export function Register() {
               id="reg-d"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="reg-age">Возраст (необязательно)</label>
+            <input
+              id="reg-age"
+              type="number"
+              min={1}
+              max={129}
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
             />
           </div>
           {err ? <p style={{ color: 'var(--warm)', fontSize: 14 }}>{err}</p> : null}

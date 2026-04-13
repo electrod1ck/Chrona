@@ -31,6 +31,7 @@ type RegisterPayload = {
   password: string;
   email?: string;
   display_name?: string;
+  age?: string;
 };
 
 type AuthContextValue = {
@@ -87,9 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (payload: RegisterPayload) => {
       await ensureCsrf();
+      const { age, ...rest } = payload;
       await apiFetch('/auth/register/', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...rest, ...(age != null && age !== '' ? { age } : {}) }),
       });
       await refresh();
     },

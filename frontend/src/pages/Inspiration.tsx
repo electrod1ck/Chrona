@@ -1,10 +1,12 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiFetch, apiUpload } from '../api';
 import { useAuth } from '../auth';
 import { PageHeader } from '../components/PageHeader';
 
 type Post = {
   id: number;
+  title?: string;
   body: string;
   image_url: string;
   author_name: string;
@@ -22,7 +24,9 @@ function formatWhen(iso: string): string {
 
 export function Inspiration() {
   const { me } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Post[]>([]);
+  const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [extUrl, setExtUrl] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,10 +54,12 @@ export function Inspiration() {
       await apiFetch('/inspiration/', {
         method: 'POST',
         body: JSON.stringify({
+          title: title.trim() || undefined,
           body: t,
           external_image_url: extUrl.trim() || undefined,
         }),
       });
+      setTitle('');
       setBody('');
       setExtUrl('');
       await load();
@@ -75,8 +81,10 @@ export function Inspiration() {
     try {
       const fd = new FormData();
       fd.append('body', t);
+      if (title.trim()) fd.append('title', title.trim());
       fd.append('image', file);
       await apiUpload('/inspiration/', fd);
+      setTitle('');
       setBody('');
       setExtUrl('');
       await load();
@@ -92,7 +100,7 @@ export function Inspiration() {
       <PageHeader
         eyebrow="Сообщество"
         title="Вдохновение"
-        lead="Лента мыслей и кадров — без соревнования, с пространством для паузы."
+        lead="Чужие мысли и кадры — можно взять идею в свою практику одним нажатием."
       />
 
       {me ? (
@@ -100,6 +108,15 @@ export function Inspiration() {
           <h3 className="card-title" style={{ marginTop: 0 }}>
             Поделиться
           </h3>
+          <div className="field">
+            <label>Заголовок (необязательно)</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={200}
+              placeholder="Короткая строка над текстом"
+            />
+          </div>
           <div className="field">
             <label>Текст</label>
             <textarea
@@ -172,9 +189,32 @@ export function Inspiration() {
                 }}
               />
             ) : null}
+            {p.title ? (
+              <h3 className="card-title" style={{ margin: '0 0 10px' }}>
+                {p.title}
+              </h3>
+            ) : null}
             <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
               {p.body}
             </p>
+            {me ? (
+              <button
+                type="button"
+                className="primary-btn"
+                style={{ marginTop: 16 }}
+                onClick={() =>
+                  void (async () => {
+                    await apiFetch('/adapted-actions/', {
+                      method: 'POST',
+                      body: JSON.stringify({ inspiration_post_id: p.id }),
+                    });
+                    navigate('/app/interventions');
+                  })()
+                }
+              >
+                Адаптировать под меня
+              </button>
+            ) : null}
           </article>
         ))}
       </div>

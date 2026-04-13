@@ -11,6 +11,7 @@ type Profile = {
   username: string;
   email: string;
   bio: string;
+  age: number | null;
 };
 
 type Stats = { comparison_line: string; avg_depth_30d: number };
@@ -23,6 +24,7 @@ export function Profile() {
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [bio, setBio] = useState('');
+  const [age, setAge] = useState<string>('');
   const [saved, setSaved] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
 
@@ -41,6 +43,7 @@ export function Profile() {
       setDisplayName(p.display_name || '');
       setAvatarUrl(p.avatar_url || '');
       setBio(p.bio || '');
+      setAge(p.age != null ? String(p.age) : '');
     });
   }, [me]);
 
@@ -71,12 +74,18 @@ export function Profile() {
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
     setSaved(false);
+    let ageNum: number | null = null;
+    if (age.trim()) {
+      const n = parseInt(age, 10);
+      if (n > 0 && n < 130) ageNum = n;
+    }
     const updated = await apiFetch<Profile>('/profile/', {
       method: 'PATCH',
       body: JSON.stringify({
         display_name: displayName.trim(),
         avatar_url: avatarUrl.trim(),
         bio: bio.trim(),
+        age: ageNum,
       }),
     });
     setProfile(updated);
@@ -161,6 +170,17 @@ export function Profile() {
         <div className="field">
           <label>Имя для отображения</label>
           <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={120} />
+        </div>
+        <div className="field">
+          <label>Возраст (необязательно)</label>
+          <input
+            type="number"
+            min={1}
+            max={129}
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            placeholder="Необязательно"
+          />
         </div>
         <div className="field">
           <label>Аватар с устройства</label>
