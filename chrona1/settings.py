@@ -32,7 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
-    'chrona.apps.ChronaConfig',
+    'chrona',
 ]
 
 MIDDLEWARE = [
@@ -76,10 +76,6 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
-        # Параллельные запросы (несколько вкладок / быстрые опросы API) иначе дают «database is locked»
-        'OPTIONS': {
-            'timeout': 30,
-        },
     }
 }
 
@@ -139,3 +135,39 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Production tweaks (keep DEBUG from environment; don't overwrite middleware)
+# If running in production mode, ensure ALLOWED_HOSTS and whitenoise are set
+if not DEBUG:
+    # temporary permissive hosts for quick testing — tighten for production
+    ALLOWED_HOSTS = ['*']
+
+    # Ensure whitenoise is present without clobbering other middleware
+    if 'whitenoise.middleware.WhiteNoiseMiddleware' not in MIDDLEWARE:
+        MIDDLEWARE.insert(0, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
+# Database (Railway сам даст DATABASE_URL)
+try:
+    import dj_database_url
+
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600)
+    }
+except Exception:
+    # dj-database-url is optional for local development; fall back to the
+    # default sqlite DATABASES config defined earlier.
+    DATABASES = DATABASES
+
+# CSRF и cookies
+CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
+
+
+BITRIX_WEBHOOK_URL = "https://b24-til8k1.bitrix24.ru/rest/1/mpdzvah7teybvap8/"
+
+# Системные коды кастомных полей (замени на свои из шага 1)
+BITRIX_FIELD_AGE = "UF_CRM_1777630519"           # Возраст
+BITRIX_FIELD_BIO = "UF_CRM_1777630584"           # О себе
+BITRIX_FIELD_REGISTERED = "UF_CRM_1777630603"    # Дата регистрации
+BITRIX_FIELD_MOMENTS = "UF_CRM_1777630624"       # Количество моментов
+BITRIX_FIELD_RITUALS = "UF_CRM_1777630642"       # Активных ритуалов

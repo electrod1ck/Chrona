@@ -19,3 +19,11 @@ class ChronaConfig(AppConfig):
         from django.db.backends.signals import connection_created
 
         connection_created.connect(_configure_sqlite)
+
+class ChronaConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "chrona"
+
+    def ready(self):
+        # Подключаем сигналы при старте приложения
+        import chrona.signals  # noqa
